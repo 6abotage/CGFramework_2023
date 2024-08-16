@@ -187,14 +187,16 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 	 * @param viewMatrix The cameras view-Matrix
 	 * @param projMatrix The cameras projection-Matrix
 	 */
-	private void drawMeshes(Mat4 viewMatrix, Mat4 projMatrix) {
+	private void drawMeshes( Mat4 viewMatrix, Mat4 projMatrix ){
+		
+		ArrayList<Mesh> lights           = m_scene.getLights();
+		Vec3            lightpositions[] = new Vec3[lights.size()];
+		Vec3            lightcolors[]    = new Vec3[lights.size()];
+		int             lightcount       = lights.size();
 
-		ArrayList<Mesh> lights = m_scene.getLights();
-		Vec3 lightpositions[] = new Vec3[lights.size()];
-		Vec3 lightcolors[] = new Vec3[lights.size()];
-		int lightcount = lights.size();
-
-		for (int i = 0; i < lights.size(); ++i) {
+		
+		for( int i = 0; i < lights.size(); ++i )
+		{
 			Mat4 modelMatrix = lights.get(i).getModelMatrix();
 
 			Vec3 position = new Vec3();
@@ -215,12 +217,27 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 
 		ArrayList<Mesh> meshes = m_scene.getMeshes();
 
-		for (Mesh mesh : meshes) {
-			m_standardShader.setUniform("uModel", mesh.getModelMatrix());
-			m_standardShader.setUniform("uColor", mesh.getDiffuseColor());
+		// We enable culling, so meshes that don't face us won't be drawn
+		// Each polygon has a front and a back face
+		glEnable(GL_CULL_FACE);
 
+		for (Mesh mesh : meshes) {
+			Mat4 modelMatrix = mesh.getModelMatrix();
+			
+			glCullFace(GL_BACK); // The back of the green triangle won't be drawn
+			// this is the default anyway
+			m_standardShader.setUniform("uModel", modelMatrix);
+			m_standardShader.setUniform("uColor", mesh.getDiffuseColor());
+			mesh.draw();
+	
+			glCullFace(GL_FRONT); // The front of the red triangle won't be drawn
+			m_standardShader.setUniform("uModel", modelMatrix);
+			m_standardShader.setUniform("uColor", Color.red());
 			mesh.draw();
 		}
+	
+		glDisable(GL_CULL_FACE);
+
 	}
 
 	/**
@@ -331,11 +348,15 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 	 * 
 	 * @return Returns a triangle mesh
 	 */
-	private Mesh createTriangle() {
-		float[] positions = { -0.5f, -0.5f, 0.0f, 0.5f, -0.5f, 0.0f, 0.0f, 0.5f, 0.0f };
-
-		int[] indices = { 0, 1, 2 };
-
+	private Mesh createTriangle()
+	{
+		float[] positions = { -0.5f, -0.5f, 0.0f, 
+							   0.5f, -0.5f, 0.0f,
+							   0.0f,  0.5f, 0.0f,
+							   1.0f,  0.5f, 0.0f };
+		
+		int[] indices = { 0, 1, 2, 3, 1, 2 };
+		
 		int attributeLocation = 0; // has to match the location set in the vertex shader
 		int floatsPerPosition = 3; // x, y and z values per position
 
