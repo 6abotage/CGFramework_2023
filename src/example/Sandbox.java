@@ -74,6 +74,15 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 	private static final int TURNTABLE = 1;
 	private int m_cameraType = PERSPECTIVE;
 
+	private static final int TRIANGLES = 2;
+	private static final int OPEN_CUBE = 3;
+	private static final int MOEBIUS = 4;
+	private int m_object = TRIANGLES;
+	
+	private static final int LINE_ON = 1;
+	private static final int LINE_OFF = 0;
+	private int m_drawLines = LINE_ON;
+
 	private FloatBuffer m_cameraSpeed = BufferUtils.createFloatBuffer(1).put(0, 5f);
 
 	// Empty constructor - initialization is done in init() function
@@ -256,7 +265,7 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 				m_standardShader.setUniform("uColor", Color.lightBlue());
 				mesh.draw(GL_LINES);
 			}
-			
+
 		}
 
 	}
@@ -486,6 +495,23 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 		if (nk_option_label(ctx, "Turn Table", m_cameraType == TURNTABLE)) {
 			m_cameraType = TURNTABLE;
 			setCameraType(m_cameraType);
+		}
+		nk_label(ctx, "Object selection:", NK_RIGHT);
+		if (nk_option_label(ctx, "Triangles", m_object == TRIANGLES)) {
+			m_object = TRIANGLES;
+		}
+		if (nk_option_label(ctx, "Open Cube", m_object == OPEN_CUBE)) {
+			m_object = OPEN_CUBE;
+		}
+		if (nk_option_label(ctx, "Moebius", m_object == MOEBIUS)) {
+			m_object = MOEBIUS;
+		}
+		nk_label(ctx, "Draw:", NK_RIGHT);
+		if(nk_option_label(ctx, "Draw Lines", m_drawLines == LINE_ON)) {
+			m_drawLines = LINE_ON;
+		}
+		if(nk_option_label(ctx, "Draw Triangles", m_drawLines == LINE_OFF)) {
+			m_drawLines = LINE_OFF;
 		}
 	}
 
