@@ -187,16 +187,14 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 	 * @param viewMatrix The cameras view-Matrix
 	 * @param projMatrix The cameras projection-Matrix
 	 */
-	private void drawMeshes( Mat4 viewMatrix, Mat4 projMatrix ){
-		
-		ArrayList<Mesh> lights           = m_scene.getLights();
-		Vec3            lightpositions[] = new Vec3[lights.size()];
-		Vec3            lightcolors[]    = new Vec3[lights.size()];
-		int             lightcount       = lights.size();
+	private void drawMeshes(Mat4 viewMatrix, Mat4 projMatrix) {
 
-		
-		for( int i = 0; i < lights.size(); ++i )
-		{
+		ArrayList<Mesh> lights = m_scene.getLights();
+		Vec3 lightpositions[] = new Vec3[lights.size()];
+		Vec3 lightcolors[] = new Vec3[lights.size()];
+		int lightcount = lights.size();
+
+		for (int i = 0; i < lights.size(); ++i) {
 			Mat4 modelMatrix = lights.get(i).getModelMatrix();
 
 			Vec3 position = new Vec3();
@@ -217,26 +215,49 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 
 		ArrayList<Mesh> meshes = m_scene.getMeshes();
 
-		// We enable culling, so meshes that don't face us won't be drawn
-		// Each polygon has a front and a back face
-		glEnable(GL_CULL_FACE);
-
 		for (Mesh mesh : meshes) {
-			Mat4 modelMatrix = mesh.getModelMatrix();
+
+			if (m_scene.getMesh("triangle").equals(mesh)) {
+				System.out.println("Drawing triangle mesh");
+
+				// We enable culling, so meshes that don't face us won't be drawn
+				// Each polygon has a front and a back face
+				glEnable(GL_CULL_FACE);
+				glCullFace(GL_BACK); // The back of the green triangle won't be drawn
+				// this is the default anyway
+				m_standardShader.setUniform("uModel", mesh.getModelMatrix());
+				m_standardShader.setUniform("uColor", mesh.getDiffuseColor());
+				mesh.draw();
+
+				glCullFace(GL_FRONT); // The front of the red triangle won't be drawn
+				m_standardShader.setUniform("uModel", mesh.getModelMatrix());
+				m_standardShader.setUniform("uColor", Color.red());
+				mesh.draw();
+				glDisable(GL_CULL_FACE);
+			} else if (m_scene.getMesh("triangleEdges").equals(mesh)) {
+				System.out.println("Drawing triangle edges");
+				float currentLineWidth[] = new float[1];
+				glGetFloatv(GL_LINE_WIDTH, currentLineWidth);
+				System.out.println("Current line width: " + currentLineWidth[0]);
+
+				glLineWidth(5.0f);
+				glGetFloatv(GL_LINE_WIDTH, currentLineWidth);
+				System.out.println("Line width after setting: " + currentLineWidth[0]);
+
+				m_standardShader.setUniform("uModel", mesh.getModelMatrix());
+				m_standardShader.setUniform("uColor", Color.lightBlue());
+				mesh.draw(GL_LINES);
+
+				glLineWidth(1.0f);
+				System.out.println("Line width reset to: " + glGetFloat(GL_LINE_WIDTH));
+			} else {
+				System.out.println("Drawing other mesh: " + mesh);
+				m_standardShader.setUniform("uModel", mesh.getModelMatrix());
+				m_standardShader.setUniform("uColor", Color.lightBlue());
+				mesh.draw(GL_LINES);
+			}
 			
-			glCullFace(GL_BACK); // The back of the green triangle won't be drawn
-			// this is the default anyway
-			m_standardShader.setUniform("uModel", modelMatrix);
-			m_standardShader.setUniform("uColor", mesh.getDiffuseColor());
-			mesh.draw();
-	
-			glCullFace(GL_FRONT); // The front of the red triangle won't be drawn
-			m_standardShader.setUniform("uModel", modelMatrix);
-			m_standardShader.setUniform("uColor", Color.red());
-			mesh.draw();
 		}
-	
-		glDisable(GL_CULL_FACE);
 
 	}
 
@@ -338,9 +359,11 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 	 * to the scene.
 	 */
 	private void createMeshes() {
-		Mesh triangle = createTriangle();
+		Mesh triangle = createTriangle(false);
+		Mesh triangleEdges = createTriangle(true);
+		m_scene.addMesh("triangle", triangle);
+		m_scene.addMesh("triangleEdges", triangleEdges);
 
-		m_scene.addMesh(triangle);
 	}
 
 	/**
@@ -348,26 +371,59 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 	 * 
 	 * @return Returns a triangle mesh
 	 */
-	private Mesh createTriangle()
-	{
-		float[] positions = { -0.5f, -0.5f, 0.0f, 
-							   0.5f, -0.5f, 0.0f,
-							   0.0f,  0.5f, 0.0f,
-							   1.0f,  0.5f, 0.0f };
-		
+	private Mesh createTriangle(boolean use_lineindices) {
+		float[] positions = { -0.5f, -0.5f, 0.0f, 0.5f, -0.5f, 0.0f, 0.0f, 0.5f, 0.0f, 1.0f, 0.5f, 0.0f };
+
 		int[] indices = { 0, 1, 2, 3, 1, 2 };
-		
 		int attributeLocation = 0; // has to match the location set in the vertex shader
 		int floatsPerPosition = 3; // x, y and z values per position
 
 		Mesh mesh = new Mesh(positions, indices, GL_STATIC_DRAW);
 		mesh.setAttribute(attributeLocation, positions, floatsPerPosition);
-		mesh.setIndices(indices);
+
+		if (use_lineindices) {
+			int[] lineIndices = createLineIndices(indices);
+			mesh.setIndices(lineIndices);
+			// log the line indices
+			System.out.println("Line indices: ");
+			for (int i = 0; i < lineIndices.length; i++) {
+				System.out.print(lineIndices[i] + " ");
+			}
+			System.out.println();
+		} else {
+			mesh.setIndices(indices);
+		}
 
 		mesh.setModelMatrix(new Mat4());
 		mesh.setDiffuseColor(Color.green());
 
 		return mesh;
+	}
+
+	/**
+	 * This function creates an array of vertices for a line.
+	 * 
+	 * @return Returns
+	 */
+	private int[] createLineIndices(int[] triangleIndices) {
+		int[] lineIndices = new int[triangleIndices.length * 2];
+		int lineIndex = 0;
+
+		for (int i = 0; i < triangleIndices.length; i += 3) {
+			// First edge
+			lineIndices[lineIndex++] = triangleIndices[i];
+			lineIndices[lineIndex++] = triangleIndices[i + 1];
+
+			// Second edge
+			lineIndices[lineIndex++] = triangleIndices[i + 1];
+			lineIndices[lineIndex++] = triangleIndices[i + 2];
+
+			// Third edge
+			lineIndices[lineIndex++] = triangleIndices[i + 2];
+			lineIndices[lineIndex++] = triangleIndices[i];
+		}
+
+		return lineIndices;
 	}
 
 	/**
