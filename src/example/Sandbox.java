@@ -74,10 +74,10 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 	private static final int TURNTABLE = 1;
 	private int m_cameraType = PERSPECTIVE;
 
-	private static final int TRIANGLES = 2;
+	private static final int TRIANGLE = 2;
 	private static final int OPEN_CUBE = 3;
 	private static final int MOEBIUS = 4;
-	private int m_object = TRIANGLES;
+	private int m_object = TRIANGLE;
 
 	private static final int LINE_ON = 1;
 	private static final int LINE_OFF = 0;
@@ -197,78 +197,80 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 	 * @param projMatrix The cameras projection-Matrix
 	 */
 	private void drawMeshes(Mat4 viewMatrix, Mat4 projMatrix) {
-
 		ArrayList<Mesh> lights = m_scene.getLights();
 		Vec3 lightpositions[] = new Vec3[lights.size()];
 		Vec3 lightcolors[] = new Vec3[lights.size()];
 		int lightcount = lights.size();
-
+	
 		for (int i = 0; i < lights.size(); ++i) {
 			Mat4 modelMatrix = lights.get(i).getModelMatrix();
-
+	
 			Vec3 position = new Vec3();
 			position.x = modelMatrix.m03;
 			position.y = modelMatrix.m13;
 			position.z = modelMatrix.m23;
-
+	
 			lightpositions[i] = position;
 			lightcolors[i] = lights.get(i).getDiffuseColor();
 		}
-
+	
 		m_standardShader.useProgram();
 		m_standardShader.setUniform("uView", viewMatrix);
 		m_standardShader.setUniform("uProjection", projMatrix);
 		m_standardShader.setUniform("uLightpositions", lightpositions);
 		m_standardShader.setUniform("uLightcolors", lightcolors);
 		m_standardShader.setUniform("uLightCount", lightcount);
-
-		ArrayList<Mesh> meshes = m_scene.getMeshes();
-
-		for (Mesh mesh : meshes) {
-
-			if ( m_scene.getMesh("moebiusStrip").equals(mesh)) {
-				System.out.println("Drawing triangle mesh");
-
-				// We enable culling, so meshes that don't face us won't be drawn
-				// Each polygon has a front and a back face
-				glEnable(GL_CULL_FACE);
-				glCullFace(GL_BACK); // The back of the green triangle won't be drawn
-				// this is the default anyway
-				m_standardShader.setUniform("uModel", mesh.getModelMatrix());
-				m_standardShader.setUniform("uColor", mesh.getDiffuseColor());
-				mesh.draw();
-
-				glCullFace(GL_FRONT); // The front of the red triangle won't be drawn
-				m_standardShader.setUniform("uModel", mesh.getModelMatrix());
-				m_standardShader.setUniform("uColor", Color.red());
-				mesh.draw();
-				glDisable(GL_CULL_FACE);
-			} else if ( m_scene.getMesh("moebiusStripEdges").equals(mesh)) {
-				System.out.println("Drawing triangle edges");
-				float currentLineWidth[] = new float[1];
-				glGetFloatv(GL_LINE_WIDTH, currentLineWidth);
-				System.out.println("Current line width: " + currentLineWidth[0]);
-
-				glLineWidth(5.0f);
-				glGetFloatv(GL_LINE_WIDTH, currentLineWidth);
-				System.out.println("Line width after setting: " + currentLineWidth[0]);
-
-				m_standardShader.setUniform("uModel", mesh.getModelMatrix());
-				m_standardShader.setUniform("uColor", Color.lightBlue());
-				mesh.draw(GL_LINES);
-
-				glLineWidth(1.0f);
-				System.out.println("Line width reset to: " + glGetFloat(GL_LINE_WIDTH));
-			} else {
-				System.out.println("Drawing other mesh: " + mesh);
-				m_standardShader.setUniform("uModel", mesh.getModelMatrix());
-				m_standardShader.setUniform("uColor", Color.lightBlue());
-				mesh.draw(GL_LINES);
-			}
-
+	
+		Mesh selectedMesh = null;
+		switch (m_object) {
+			case TRIANGLE:
+				selectedMesh = m_scene.getMesh("triangle");
+				break;
+			case OPEN_CUBE:
+				// Add logic for OPEN_CUBE if you have it
+				break;
+			case MOEBIUS:
+				selectedMesh = m_scene.getMesh("moebiusStrip");
+				break;
+			// Add cases for other objects if necessary
 		}
-
+	
+		if (selectedMesh != null) {
+			// Enable culling and set the culling face to back
+			glEnable(GL_CULL_FACE);
+			glCullFace(GL_BACK); // Cull the back face
+			m_standardShader.setUniform("uModel", selectedMesh.getModelMatrix());
+			m_standardShader.setUniform("uColor", selectedMesh.getDiffuseColor());
+			selectedMesh.draw();
+	
+			// Cull the front face and draw it with a different color
+			glCullFace(GL_FRONT); // Cull the front face
+			m_standardShader.setUniform("uModel", selectedMesh.getModelMatrix());
+			m_standardShader.setUniform("uColor", Color.red());
+			selectedMesh.draw();
+	
+			// Disable culling after drawing
+			glDisable(GL_CULL_FACE);
+	
+			// Draw edges or lines if applicable
+			if (m_drawLines == LINE_ON) {
+				Mesh edgeMesh = null;
+				if (m_object == TRIANGLE) {
+					edgeMesh = m_scene.getMesh("triangleEdges");
+				} else if (m_object == MOEBIUS) {
+					edgeMesh = m_scene.getMesh("moebiusStripEdges");
+				}
+				if (edgeMesh != null) {
+					m_standardShader.setUniform("uModel", edgeMesh.getModelMatrix());
+					m_standardShader.setUniform("uColor", Color.lightBlue());
+					glLineWidth(2.0f);
+					edgeMesh.draw(GL_LINES);
+				}
+			}
+		}
 	}
+	
+	
 
 	/**
 	 * Additional draw-function to render Light sources and box lines.
@@ -368,17 +370,17 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 	 * to the scene.
 	 */
 	private void createMeshes() {
-		/* Mesh triangle = createTriangle(false); */
-		/* Mesh triangleEdges = createTriangle(true); */
+		Mesh triangle = createTriangle(false);
+		Mesh triangleEdges = createTriangle(true);
 		Mesh moebiusStrip = createMoebiusStrip(false);
 		Mesh moebiusStripEdges = createMoebiusStrip(true);
 
-		/* Mesh torus = createTorus(false, 1.0f, 0.3f, 32, 64); */
-		/* Mesh torusLines = createTorus(true, 1.0f, 0.3f, 32, 64); */
-		/* m_scene.addMesh("torus", torus); */
-		/* m_scene.addMesh("torusLines", torusLines); */
-		/* m_scene.addMesh("triangle", triangle); */
-		/* m_scene.addMesh("triangleEdges", triangleEdges); */
+		Mesh torus = createTorus(false, 1.0f, 0.3f, 32, 64);
+		Mesh torusLines = createTorus(true, 1.0f, 0.3f, 32, 64);
+		m_scene.addMesh("torus", torus);
+		m_scene.addMesh("torusLines", torusLines);
+		m_scene.addMesh("triangle", triangle);
+		m_scene.addMesh("triangleEdges", triangleEdges);
 		m_scene.addMesh("moebiusStrip", moebiusStrip);
 		m_scene.addMesh("moebiusStripEdges", moebiusStripEdges);
 
@@ -633,8 +635,8 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 			setCameraType(m_cameraType);
 		}
 		nk_label(ctx, "Object selection:", NK_RIGHT);
-		if (nk_option_label(ctx, "Triangles", m_object == TRIANGLES)) {
-			m_object = TRIANGLES;
+		if (nk_option_label(ctx, "Triangle", m_object == TRIANGLE)) {
+			m_object = TRIANGLE;
 		}
 		if (nk_option_label(ctx, "Open Cube", m_object == OPEN_CUBE)) {
 			m_object = OPEN_CUBE;
@@ -646,7 +648,7 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 		if (nk_option_label(ctx, "Draw Lines", m_drawLines == LINE_ON)) {
 			m_drawLines = LINE_ON;
 		}
-		if (nk_option_label(ctx, "Draw Triangles", m_drawLines == LINE_OFF)) {
+		if (nk_option_label(ctx, "Draw Triangle", m_drawLines == LINE_OFF)) {
 			m_drawLines = LINE_OFF;
 		}
 	}
