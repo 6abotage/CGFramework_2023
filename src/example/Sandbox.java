@@ -78,7 +78,7 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 	private static final int OPEN_CUBE = 3;
 	private static final int MOEBIUS = 4;
 	private int m_object = TRIANGLES;
-	
+
 	private static final int LINE_ON = 1;
 	private static final int LINE_OFF = 0;
 	private int m_drawLines = LINE_ON;
@@ -226,7 +226,7 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 
 		for (Mesh mesh : meshes) {
 
-			if (m_scene.getMesh("triangle").equals(mesh)) {
+			if ( m_scene.getMesh("moebiusStrip").equals(mesh)) {
 				System.out.println("Drawing triangle mesh");
 
 				// We enable culling, so meshes that don't face us won't be drawn
@@ -243,7 +243,7 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 				m_standardShader.setUniform("uColor", Color.red());
 				mesh.draw();
 				glDisable(GL_CULL_FACE);
-			} else if (m_scene.getMesh("triangleEdges").equals(mesh)) {
+			} else if ( m_scene.getMesh("moebiusStripEdges").equals(mesh)) {
 				System.out.println("Drawing triangle edges");
 				float currentLineWidth[] = new float[1];
 				glGetFloatv(GL_LINE_WIDTH, currentLineWidth);
@@ -368,10 +368,19 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 	 * to the scene.
 	 */
 	private void createMeshes() {
-		Mesh triangle = createTriangle(false);
-		Mesh triangleEdges = createTriangle(true);
-		m_scene.addMesh("triangle", triangle);
-		m_scene.addMesh("triangleEdges", triangleEdges);
+		/* Mesh triangle = createTriangle(false); */
+		/* Mesh triangleEdges = createTriangle(true); */
+		Mesh moebiusStrip = createMoebiusStrip(false);
+		Mesh moebiusStripEdges = createMoebiusStrip(true);
+
+		/* Mesh torus = createTorus(false, 1.0f, 0.3f, 32, 64); */
+		/* Mesh torusLines = createTorus(true, 1.0f, 0.3f, 32, 64); */
+		/* m_scene.addMesh("torus", torus); */
+		/* m_scene.addMesh("torusLines", torusLines); */
+		/* m_scene.addMesh("triangle", triangle); */
+		/* m_scene.addMesh("triangleEdges", triangleEdges); */
+		m_scene.addMesh("moebiusStrip", moebiusStrip);
+		m_scene.addMesh("moebiusStripEdges", moebiusStripEdges);
 
 	}
 
@@ -405,6 +414,133 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 
 		mesh.setModelMatrix(new Mat4());
 		mesh.setDiffuseColor(Color.green());
+
+		return mesh;
+	}
+
+	private Mesh createMoebiusStrip(boolean use_lineindices) {
+		int uSteps = 100;
+		int vSteps = 20;  // Reduced for better performance, adjust as needed
+		float uRange = (float) (2 * Math.PI);  // Correct range for u
+		float vRange = 2;  // v ranges from -1 to 1
+		float uStepSize = uRange / (uSteps - 1);  // Ensure we reach the full range
+		float vStepSize = vRange / (vSteps - 1);
+		float[] positions = new float[uSteps * vSteps * 3];
+	
+		int vertexIndex = 0;
+		for (int i = 0; i < uSteps; i++) {
+			for (int j = 0; j < vSteps; j++) {
+				float u = i * uStepSize;
+				float v = j * vStepSize - 1;  // Ranges from -1 to 1
+	
+				// Correct Möbius strip equations
+				float xybase = (float) (1 + 0.5f * v * Math.cos(u / 2));
+				float x = (float) (xybase * Math.cos(u));
+				float y = (float) (xybase * Math.sin(u));
+				float z = (float) (0.5 * v * Math.sin(u / 2));
+	
+				positions[vertexIndex++] = x;
+				positions[vertexIndex++] = y;
+				positions[vertexIndex++] = z;
+			}
+		}
+	
+		// Create indices
+		int[] indices = new int[6 * (uSteps - 1) * (vSteps - 1)];
+		int indexCount = 0;
+		for (int i = 0; i < uSteps - 1; i++) {
+			for (int j = 0; j < vSteps - 1; j++) {
+				int topLeft = i * vSteps + j;
+				int topRight = topLeft + 1;
+				int bottomLeft = ((i + 1) % uSteps) * vSteps + j;  // Wrap around for Möbius strip
+				int bottomRight = bottomLeft + 1;
+	
+				// First triangle
+				indices[indexCount++] = topLeft;
+				indices[indexCount++] = bottomLeft;
+				indices[indexCount++] = topRight;
+	
+				// Second triangle
+				indices[indexCount++] = topRight;
+				indices[indexCount++] = bottomLeft;
+				indices[indexCount++] = bottomRight;
+			}
+		}
+	
+		Mesh mesh = new Mesh(positions, indices, GL_STATIC_DRAW);
+		mesh.setAttribute(0, positions, 3);
+	
+		if (use_lineindices) {
+			int[] lineIndices = createLineIndices(indices);
+			mesh.setIndices(lineIndices);
+		} else {
+			mesh.setIndices(indices);
+		}
+	
+		mesh.setModelMatrix(new Mat4());
+		mesh.setDiffuseColor(Color.green());
+	
+		return mesh;
+	}
+	
+	private Mesh createTorus(boolean use_lineindices, float R, float r, int segments, int rings) {
+		// R: distance from the center of the tube to the center of the torus
+		// r: radius of the tube
+		// segments: number of segments around the tube
+		// rings: number of rings around the torus
+
+		int vertexCount = segments * rings;
+		float[] positions = new float[vertexCount * 3];
+		int[] indices = new int[segments * rings * 6];
+
+		int vertexIndex = 0;
+		int indexIndex = 0;
+
+		for (int i = 0; i < rings; i++) {
+			for (int j = 0; j < segments; j++) {
+				float theta = (float) (2 * Math.PI * i / rings);
+				float phi = (float) (2 * Math.PI * j / segments);
+
+				float x = (float) ((R + r * Math.cos(phi)) * Math.cos(theta));
+				float y = (float) ((R + r * Math.cos(phi)) * Math.sin(theta));
+				float z = (float) (r * Math.sin(phi));
+
+				positions[vertexIndex++] = x;
+				positions[vertexIndex++] = y;
+				positions[vertexIndex++] = z;
+
+				int nextI = (i + 1) % rings;
+				int nextJ = (j + 1) % segments;
+
+				int currentVertex = i * segments + j;
+				int nextVertexI = nextI * segments + j;
+				int nextVertexJ = i * segments + nextJ;
+				int nextVertexIJ = nextI * segments + nextJ;
+
+				// First triangle
+				indices[indexIndex++] = currentVertex;
+				indices[indexIndex++] = nextVertexI;
+				indices[indexIndex++] = nextVertexJ;
+
+				// Second triangle
+				indices[indexIndex++] = nextVertexJ;
+				indices[indexIndex++] = nextVertexI;
+				indices[indexIndex++] = nextVertexIJ;
+			}
+		}
+
+		Mesh mesh = new Mesh(positions, indices, GL_STATIC_DRAW);
+		mesh.setAttribute(0, positions, 3);
+
+		if (use_lineindices) {
+			int[] lineIndices = createLineIndices(indices);
+			mesh.setIndices(lineIndices);
+		} else {
+			mesh.setIndices(indices);
+		}
+
+		mesh.setModelMatrix(new Mat4());
+		mesh.setDiffuseColor(Color.cyan());
 
 		return mesh;
 	}
@@ -507,10 +643,10 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 			m_object = MOEBIUS;
 		}
 		nk_label(ctx, "Draw:", NK_RIGHT);
-		if(nk_option_label(ctx, "Draw Lines", m_drawLines == LINE_ON)) {
+		if (nk_option_label(ctx, "Draw Lines", m_drawLines == LINE_ON)) {
 			m_drawLines = LINE_ON;
 		}
-		if(nk_option_label(ctx, "Draw Triangles", m_drawLines == LINE_OFF)) {
+		if (nk_option_label(ctx, "Draw Triangles", m_drawLines == LINE_OFF)) {
 			m_drawLines = LINE_OFF;
 		}
 	}
