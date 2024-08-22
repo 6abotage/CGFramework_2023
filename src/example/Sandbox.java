@@ -77,6 +77,7 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 	private static final int TRIANGLE = 2;
 	private static final int OPEN_CUBE = 3;
 	private static final int MOEBIUS = 4;
+	private static final int TORUS = 5;
 	private int m_object = TRIANGLE;
 
 	private static final int LINE_ON = 1;
@@ -232,7 +233,9 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 			case MOEBIUS:
 				selectedMesh = m_scene.getMesh("moebiusStrip");
 				break;
-			// Add cases for other objects if necessary
+			case TORUS:
+				selectedMesh = m_scene.getMesh("torus");
+				break;
 		}
 	
 		if (selectedMesh != null) {
@@ -259,6 +262,9 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 					edgeMesh = m_scene.getMesh("triangleEdges");
 				} else if (m_object == MOEBIUS) {
 					edgeMesh = m_scene.getMesh("moebiusStripEdges");
+				}
+				else if (m_object == TORUS) {
+					edgeMesh = m_scene.getMesh("torusLines");
 				}
 				if (edgeMesh != null) {
 					m_standardShader.setUniform("uModel", edgeMesh.getModelMatrix());
@@ -374,9 +380,9 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 		Mesh triangleEdges = createTriangle(true);
 		Mesh moebiusStrip = createMoebiusStrip(false);
 		Mesh moebiusStripEdges = createMoebiusStrip(true);
-
 		Mesh torus = createTorus(false, 1.0f, 0.3f, 32, 64);
 		Mesh torusLines = createTorus(true, 1.0f, 0.3f, 32, 64);
+
 		m_scene.addMesh("torus", torus);
 		m_scene.addMesh("torusLines", torusLines);
 		m_scene.addMesh("triangle", triangle);
@@ -420,22 +426,22 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 		return mesh;
 	}
 
+	// u runs around the tube, ranging from 0 to 2π
+	// v around the torus, ranging from -1 to 1	
+	// for ease of use you can alternate v from -1 to 1
 	private Mesh createMoebiusStrip(boolean use_lineindices) {
 		int uSteps = 100;
-		int vSteps = 20;  // Reduced for better performance, adjust as needed
-		float uRange = (float) (2 * Math.PI);  // Correct range for u
-		float vRange = 2;  // v ranges from -1 to 1
-		float uStepSize = uRange / (uSteps - 1);  // Ensure we reach the full range
-		float vStepSize = vRange / (vSteps - 1);
-		float[] positions = new float[uSteps * vSteps * 3];
+		float uRange = (float) (2 * Math.PI);  
+		float uStepSize = uRange / (uSteps - 1);  
+		float[] positions = new float[uSteps * 2 * 3];
+		int v = 1;
+		int[] indices;
 	
 		int vertexIndex = 0;
-		for (int i = 0; i < uSteps; i++) {
-			for (int j = 0; j < vSteps; j++) {
-				float u = i * uStepSize;
-				float v = j * vStepSize - 1;  // Ranges from -1 to 1
+	    for (int i = 0; i < uSteps; i++) {
+			float u = i * uStepSize;
 	
-				// Correct Möbius strip equations
+			for (int j = 0; j < 2; j++) {  
 				float xybase = (float) (1 + 0.5f * v * Math.cos(u / 2));
 				float x = (float) (xybase * Math.cos(u));
 				float y = (float) (xybase * Math.sin(u));
@@ -444,30 +450,27 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 				positions[vertexIndex++] = x;
 				positions[vertexIndex++] = y;
 				positions[vertexIndex++] = z;
+	
+				v *= -1;  
 			}
 		}
 	
-		// Create indices
-		int[] indices = new int[6 * (uSteps - 1) * (vSteps - 1)];
-		int indexCount = 0;
-		for (int i = 0; i < uSteps - 1; i++) {
-			for (int j = 0; j < vSteps - 1; j++) {
-				int topLeft = i * vSteps + j;
-				int topRight = topLeft + 1;
-				int bottomLeft = ((i + 1) % uSteps) * vSteps + j;  // Wrap around for Möbius strip
-				int bottomRight = bottomLeft + 1;
-	
-				// First triangle
-				indices[indexCount++] = topLeft;
-				indices[indexCount++] = bottomLeft;
-				indices[indexCount++] = topRight;
-	
-				// Second triangle
-				indices[indexCount++] = topRight;
-				indices[indexCount++] = bottomLeft;
-				indices[indexCount++] = bottomRight;
-			}
-		}
+		indices = new int[uSteps * 6];
+        int indexCount = 0;
+        for (int i = 0; i < uSteps; i++) {
+            int i2 = (i * 2) % (uSteps * 2);
+            int i2n = ((i + 1) * 2) % (uSteps * 2);
+            
+            // First triangle
+            indices[indexCount++] = i2;
+            indices[indexCount++] = i2n;
+            indices[indexCount++] = i2 + 1;
+            
+            // Second triangle
+            indices[indexCount++] = i2n;
+            indices[indexCount++] = i2n + 1;
+            indices[indexCount++] = i2 + 1;
+        }
 	
 		Mesh mesh = new Mesh(positions, indices, GL_STATIC_DRAW);
 		mesh.setAttribute(0, positions, 3);
@@ -643,6 +646,9 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 		}
 		if (nk_option_label(ctx, "Moebius", m_object == MOEBIUS)) {
 			m_object = MOEBIUS;
+		}
+		if (nk_option_label(ctx, "Torus", m_object == TORUS)) {
+			m_object = TORUS;
 		}
 		nk_label(ctx, "Draw:", NK_RIGHT);
 		if (nk_option_label(ctx, "Draw Lines", m_drawLines == LINE_ON)) {
