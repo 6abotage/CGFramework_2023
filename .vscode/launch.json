@@ -6,16 +6,12 @@
     "configurations": [
         {
             "type": "java",
-            "name": "Current File",
-            "request": "launch",
-            "mainClass": "${file}"
-        },
-        {
-            "type": "java",
             "name": "Sandbox",
             "request": "launch",
             "mainClass": "example.Sandbox",
-            "projectName": "CGFramework_2023"
+            "projectName": "CGFramework_2023",
+            "vmArgs": "-XstartOnFirstThread"
+            
         }
     ]
 }
