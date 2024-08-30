@@ -76,6 +76,15 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 
 	private FloatBuffer m_cameraSpeed = BufferUtils.createFloatBuffer(1).put(0, 5f);
 
+	// Mat4
+	private Mat4 sunTransform, earthTransform, marsTransform, earthMoonTransform, marsMoon1Transform,
+			marsMoon2Transform;
+	private float earthOrbitAngle = 0;
+	private float earthMoonOrbitAngle = 0;
+	private float marsOrbitAngle = 0;
+	private float phobosOrbitAngle = 0;
+	private float deimosOrbitAngle = 0;
+
 	// Empty constructor - initialization is done in init() function
 	public Sandbox() {
 	}
@@ -143,7 +152,6 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 	 * @param deltaTime
 	 */
 	public void update(float deltaTime) {
-
 		// Show FPS
 		m_gui.fpsString = "FPS: " + (int) (1 / deltaTime);
 
@@ -153,6 +161,64 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 		if (selectedMesh != null)
 			selectedMesh.setDiffuseColor(m_gui.getColor());
 
+		float earthOrbitSpeed = 0.5f;
+		float earthMoonOrbitSpeed = 2.0f;
+		float marsOrbitSpeed = 0.3f;
+		float phobosOrbitSpeed = 2.5f;
+		float deimosOrbitSpeed = 1.5f;
+
+		// Update Earth's orbit
+		earthOrbitAngle += earthOrbitSpeed * deltaTime;
+		Mat4 earthRotation = Mat4.rotation(Vec3.yAxis(), earthOrbitAngle);
+		Mat4 earthTranslation = Mat4.translation(new Vec3(3.0f, 0.0f, 0.0f));
+		Mat4 earthScale = Mat4.scale(0.5f);
+		Mat4 earthTransform = Mat4.mul(Mat4.mul(earthRotation, earthTranslation), earthScale);
+		m_scene.getMesh("earth").setModelMatrix(earthTransform);
+
+		// Update Earth's Moon orbit
+		earthMoonOrbitAngle += earthMoonOrbitSpeed * deltaTime;
+		Mat4 moonRotation = Mat4.rotation(Vec3.yAxis(), earthMoonOrbitAngle);
+		Mat4 moonTranslation = Mat4.translation(new Vec3(1.0f, 0.0f, 0.0f));
+		Mat4 moonScale = Mat4.scale(0.25f);
+		Mat4 moonLocalTransform = Mat4.mul(Mat4.mul(moonRotation, moonTranslation), moonScale);
+		Mat4 moonGlobalTransform = Mat4.mul(earthTransform, moonLocalTransform);
+		m_scene.getMesh("earthMoon").setModelMatrix(moonGlobalTransform);
+
+		// Update Mars' orbit
+		marsOrbitAngle += marsOrbitSpeed * deltaTime; // Fixed: Accumulate the angle instead of resetting it
+		Mat4 marsRotation = Mat4.rotation(Vec3.yAxis(), marsOrbitAngle);
+		Mat4 marsTranslation = Mat4.translation(new Vec3(5.0f, 0.0f, 0.0f));
+		Mat4 marsScale = Mat4.scale(0.4f);
+		Mat4 marsTransform = Mat4.mul(Mat4.mul(marsRotation, marsTranslation), marsScale);
+		m_scene.getMesh("mars").setModelMatrix(marsTransform);
+
+		// Update Phobos' orbit (around Mars' Y-axis)
+		phobosOrbitAngle += phobosOrbitSpeed * deltaTime; // Fixed: Accumulate the angle
+		Mat4 phobosRotation = Mat4.rotation(Vec3.yAxis(), phobosOrbitAngle);
+		Mat4 phobosTranslation = Mat4.translation(new Vec3(0.0f, 0.0f, 0.6f));
+		Mat4 phobosScale = Mat4.scale(0.1f);
+		Mat4 phobosLocalTransform = Mat4.mul(Mat4.mul(phobosRotation, phobosTranslation), phobosScale);
+		Mat4 phobosGlobalTransform = Mat4.mul(marsTransform, phobosLocalTransform);
+		m_scene.getMesh("phobos").setModelMatrix(phobosGlobalTransform);
+
+		// Update Deimos' orbit (around Mars' X-axis)
+		deimosOrbitAngle += deimosOrbitSpeed * deltaTime; // Fixed: Accumulate the angle
+		Mat4 deimosRotation = Mat4.rotation(Vec3.xAxis(), deimosOrbitAngle);
+		Mat4 deimosTranslation = Mat4.translation(new Vec3(0.0f, 0.8f, 0.0f));
+		Mat4 deimosScale = Mat4.scale(0.08f);
+		Mat4 deimosLocalTransform = Mat4.mul(Mat4.mul(deimosRotation, deimosTranslation), deimosScale);
+		Mat4 deimosGlobalTransform = Mat4.mul(marsTransform, deimosLocalTransform);
+		m_scene.getMesh("deimos").setModelMatrix(deimosGlobalTransform);
+
+		drawCircle(Vec3.yAxis(), Mat4.mul(earthTransform, Mat4.scale(1.0f)), 50);
+
+		// Mars' orbit around the Sun
+
+		// Phobos' orbit around Mars
+		drawCircle(Vec3.yAxis(), Mat4.mul(marsTransform, Mat4.scale(0.6f)), 50);
+
+		// Deimos' orbit around Mars
+		drawCircle(Vec3.xAxis(), Mat4.mul(marsTransform, Mat4.scale(0.8f)), 50);
 	}
 
 	/**
@@ -179,6 +245,41 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 			this.drawMeshes(camera.getViewMatrix(), camera.getProjectionMatrix());
 			this.drawPrimitives(camera.getViewMatrix(), camera.getProjectionMatrix());
 		}
+	}
+
+	public void drawCircle(Vec3 axis, Mat4 transform, int segments) {
+		// Determine which plane to draw the circle in
+		Vec3 u, v;
+		if (axis.x == 1) {
+			u = new Vec3(0, 1, 0);
+			v = new Vec3(0, 0, 1);
+		} else if (axis.y == 1) {
+			u = new Vec3(1, 0, 0);
+			v = new Vec3(0, 0, 1);
+		} else { // axis.z == 1
+			u = new Vec3(1, 0, 0);
+			v = new Vec3(0, 1, 0);
+		}
+
+		// Calculate points on the circle
+		Vec3[] points = new Vec3[segments];
+		for (int i = 0; i < segments; i++) {
+			double angle = 2 * Math.PI * i / segments;
+			Vec3 point = new Vec3((float) Math.cos(angle), 0, (float) Math.sin(angle));
+			points[i] = Vec3.transform(point, 1.0f, transform);
+		}
+		// Draw lines between points using Primitive.drawLine
+		for (int i = 0; i < segments; i++) {
+			int nextIndex = (i + 1) % segments;
+			Primitive.drawLine(points[i], points[nextIndex], Color.white());
+		}
+
+		// print all points
+		for (int i = 0; i < segments; i++) {
+			System.out.println("Point " + i + ":");
+			System.out.println(points[i]);
+		}
+
 	}
 
 	/**
@@ -321,9 +422,41 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 	 * to the scene.
 	 */
 	private void createMeshes() {
-		Mesh triangle = createTriangle();
+		// Create Sun
+		Mesh sun = loadObj("Meshes/sphere.obj");
+		sun.setDiffuseColor(Color.yellow());
+		sun.setModelMatrix(Mat4.scale(1.5f));
+		m_scene.addMesh("sun", sun);
 
-		m_scene.addMesh(triangle);
+		// Create Earth
+		Mesh earth = loadObj("Meshes/sphere.obj");
+		earth.setDiffuseColor(Color.blue());
+		earth.setModelMatrix(Mat4.scale(0.5f));
+		m_scene.addMesh("earth", earth);
+
+		// Earth's Moon
+		Mesh earthMoon = loadObj("Meshes/sphere.obj");
+		earthMoon.setDiffuseColor(Color.grey());
+		earthMoon.setModelMatrix(Mat4.scale(0.25f));
+		m_scene.addMesh("earthMoon", earthMoon);
+
+		// Create Mars
+		Mesh mars = loadObj("Meshes/sphere.obj");
+		mars.setDiffuseColor(Color.orange());
+		mars.setModelMatrix(Mat4.scale(0.4f));
+		m_scene.addMesh("mars", mars);
+
+		// Mars' Moon - Phobos
+		Mesh phobos = loadObj("Meshes/sphere.obj");
+		phobos.setDiffuseColor(Color.grey());
+		phobos.setModelMatrix(Mat4.scale(0.1f));
+		m_scene.addMesh("phobos", phobos);
+
+		// Mars' Moon - Deimos
+		Mesh deimos = loadObj("Meshes/sphere.obj");
+		deimos.setDiffuseColor(Color.grey());
+		deimos.setModelMatrix(Mat4.scale(0.08f));
+		m_scene.addMesh("deimos", deimos);
 	}
 
 	/**
