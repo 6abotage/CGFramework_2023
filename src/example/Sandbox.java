@@ -322,8 +322,14 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 	 */
 	private void createMeshes() {
 		Mesh triangle = createTriangle();
+		Mesh house = loadObj("Meshes/house.obj");
+		Mesh sphere = loadObj("Meshes/sphere.obj");
+		Mesh terrain = loadObj("Meshes/terrain.obj");
 
 		m_scene.addMesh(triangle);
+		m_scene.addMesh(house);
+		m_scene.addMesh(sphere);
+		m_scene.addMesh(terrain);
 	}
 
 	/**
@@ -332,19 +338,43 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 	 * @return Returns a triangle mesh
 	 */
 	private Mesh createTriangle() {
-		float[] positions = { -0.5f, -0.5f, 0.0f, 0.5f, -0.5f, 0.0f, 0.0f, 0.5f, 0.0f };
+		float[] positions = {
+				// Triangle vertices
+				-0.75f, -0.5f, 0.0f, // Triangle vertex 1 (left)
+				-0.25f, -0.5f, 0.0f, // Triangle vertex 2 (right)
+				-0.5f, 0.5f, 0.0f, // Triangle vertex 3 (top)
 
-		int[] indices = { 0, 1, 2 };
+				// Square vertices
+				0.25f, -0.25f, 0.0f, // Square bottom-left
+				0.75f, -0.25f, 0.0f, // Square bottom-right
+				0.25f, 0.25f, 0.0f, // Square top-left
+				0.75f, 0.25f, 0.0f // Square top-right
+		};
 
-		int attributeLocation = 0; // has to match the location set in the vertex shader
+		int[] indices = { 0, 1, 2, // Triangle
+				3, 4, 5, 4, 6, 5 // Square
+		};
+
+		int positionAttributeLocation = 0; // matches location=0 in vertex shader
 		int floatsPerPosition = 3; // x, y and z values per position
+		int floatsPerColor = 3; // r, g and b values per color
 
 		Mesh mesh = new Mesh(positions, indices, GL_STATIC_DRAW);
-		mesh.setAttribute(attributeLocation, positions, floatsPerPosition);
+		mesh.setAttribute(positionAttributeLocation, positions, floatsPerPosition);
 		mesh.setIndices(indices);
 
+		int colorAttributeLocation = 2; // matches location=2 in vertex shader
+		float[] colors = { Color.red().x, Color.red().y, Color.red().z, // Triangle vertex 1
+				Color.green().x, Color.green().y, Color.green().z, // Triangle vertex 2
+				Color.blue().x, Color.blue().y, Color.blue().z, // Triangle vertex 3
+				Color.red().x, Color.red().y, Color.red().z, // Square vertex 1
+				Color.green().x, Color.green().y, Color.green().z, // Square vertex 2
+				Color.blue().x, Color.blue().y, Color.blue().z, // Square vertex 3
+				Color.yellow().x, Color.yellow().y, Color.yellow().z // Square vertex 4
+		};
+		mesh.setAttribute(colorAttributeLocation, colors, floatsPerColor);
+
 		mesh.setModelMatrix(new Mat4());
-		mesh.setDiffuseColor(Color.green());
 
 		return mesh;
 	}
@@ -371,6 +401,18 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 
 		float[] positions = group.getPositions();
 		float[] normals = group.getNormals();
+
+		// Log a summary of the normals
+		System.out.println("Normal summary for " + filename + ":");
+		Vec3 sumNormal = new Vec3();
+		for (int i = 0; i < normals.length; i += 3) {
+			sumNormal.x += normals[i];
+			sumNormal.y += normals[i + 1];
+			sumNormal.z += normals[i + 2];
+		}
+		int normalCount = normals.length / 3;
+		Vec3 avgNormal = new Vec3(sumNormal.x / normalCount, sumNormal.y / normalCount, sumNormal.z / normalCount);
+		System.out.printf("Average normal: (%f, %f, %f)%n", avgNormal.x, avgNormal.y, avgNormal.z);
 		int[] indices = group.getIndices();
 
 		Mesh mesh = new Mesh(positions, indices, GL_STATIC_DRAW);

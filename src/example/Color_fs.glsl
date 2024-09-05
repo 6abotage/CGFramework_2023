@@ -15,11 +15,14 @@ out     vec4 FragColor;
 
 in      vec3 vPosition;
 in      vec3 vNormal;
+in      vec3 vColor;
 
 uniform vec3 uColor;
 
 
 void main(void)
 {
-    FragColor = vec4( uColor.rgb, 1.0 );
+    // normalize the normal vector
+    vec3 N = normalize(vNormal);
+    FragColor = vec4(N.x, N.y, N.z, 1.0);
 }
