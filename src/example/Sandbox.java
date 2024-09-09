@@ -321,9 +321,37 @@ public class Sandbox implements SandboxTemplate, NuklearCallback {
 	 * to the scene.
 	 */
 	private void createMeshes() {
-		Mesh triangle = createTriangle();
 
-		m_scene.addMesh(triangle);
+		Mesh terrain = loadObj("Meshes/terrain.obj");
+		m_scene.addMesh("terrain", terrain);
+
+		Mesh house = loadObj("Meshes/house.obj");
+		m_scene.addMesh("house", house);
+
+		Mesh pointlight = loadObj("Meshes/pointlight.obj");
+		pointlight.setModelMatrix(Mat4.translation(0.0f, 2.5f, 0.0f));
+		m_scene.addLight(pointlight);
+
+		Mesh pointlightRed = loadObj("Meshes/pointlight.obj");
+		pointlightRed.setModelMatrix(Mat4.translation(2.0f, 2.5f, 2.0f));
+		pointlightRed.setDiffuseColor(Color.red());
+		m_scene.addLight(pointlightRed);
+
+		Mesh pointlightBlue = loadObj("Meshes/pointlight.obj");
+		pointlightBlue.setModelMatrix(Mat4.translation(-2.0f, 2.5f, -2.0f));
+		pointlightBlue.setDiffuseColor(Color.blue());
+		m_scene.addLight(pointlightBlue);
+
+		Mesh pointlightGreen = loadObj("Meshes/pointlight.obj");
+		pointlightGreen.setModelMatrix(Mat4.translation(2.0f, 2.5f, -2.0f));
+		pointlightGreen.setDiffuseColor(Color.green());
+		m_scene.addLight(pointlightGreen);
+
+		Mesh pointlightYellow = loadObj("Meshes/pointlight.obj");
+		pointlightYellow.setModelMatrix(Mat4.translation(-2.0f, 2.5f, 2.0f));
+		pointlightYellow.setDiffuseColor(Color.yellow());
+		m_scene.addLight(pointlightYellow);
+
 	}
 
 	/**
